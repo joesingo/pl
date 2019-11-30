@@ -1,16 +1,15 @@
 #!/usr/bin/env python
+import os
 from pathlib import Path
 import re
+import shlex
 import shutil
-import sys
 import subprocess
+import sys
 
-import bibtexparser
 import yaml
 
 CONFIG_PATH = Path("~/.config/plconf.yaml").expanduser()
-SEARCH_CMD = ["fzf"]
-OPEN_CMD = ["okular"]
 
 class SearchFailureError(Exception):
     """
@@ -22,11 +21,27 @@ class EmptyLibraryError(Exception):
     There are no papers in the library
     """
 
-def run_cmd(cmd, **kwargs):
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, **kwargs)
+class InvalidBibTeXError(Exception):
+    """
+    There was an error parsing the BibTeX contents
+    """
+
+def run_cmd(cmd, fork=False, **kwargs):
+    """
+    Run an external command `cmd` (given as a string), and return the contents
+    of stdout (as a string)
+    """
+    if fork and os.fork():
+        return ""
+    if fork:
+        os.setsid()
+    proc = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, **kwargs)
     return proc.stdout.decode("utf-8").strip()
 
-def search_cmd(f):
+def search_wrapper(f):
+    """
+    Decorator to add error handling to functions using Library.search()
+    """
     def inner(*args, **kwargs):
         try:
             return f(*args, **kwargs)
@@ -36,23 +51,45 @@ def search_cmd(f):
             print("library is empty")
     return inner
 
+class Config(dict):
+    """
+    Wrapper around dict for configuration
+    """
+    DEFAULTS = {
+        "search_command": "fzf",
+        "open_command": "okular",
+    }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for key, value in self.DEFAULTS.items():
+            if key not in self:
+                self[key] = value
+
+    def __getattr__(self, k):
+        try:
+            return self[k]
+        except KeyError as ex:
+            raise AttributeError(ex)
+
+    def __setattr__(self, k, v):
+        self[k] = v
+
 class Library:
     def __init__(self):
         with CONFIG_PATH.open() as f:
-            config_dict = yaml.safe_load(f)
+            self.config = Config(yaml.safe_load(f))
+        try:
+            self.config.storage_dir = Path(self.config.storage_dir).expanduser()
+        except AttributeError:
+            raise ValueError(f"required key 'storage_dir' missing from config")
 
-        if "storage_dir" not in config_dict:
-            raise ValueError(f"Required key 'storage_dir' missing from config")
-
-        self.storage_dir = Path(config_dict["storage_dir"]).expanduser()
-        self.pdf_dir = self.storage_dir / "pdf"
-        self.bib_dir = self.storage_dir / "bib"
-        self.state_file = self.storage_dir / "state.yaml"
-        # Make sure required dirs exist
+        self.pdf_dir = self.config.storage_dir / "pdf"
+        self.bib_dir = self.config.storage_dir / "bib"
         for p in (self.pdf_dir, self.bib_dir):
             p.mkdir(exist_ok=True)
 
         # Load state
+        self.state_file = self.config.storage_dir / "state.yaml"
         try:
             with self.state_file.open() as f:
                 self.state = yaml.safe_load(f)
@@ -74,20 +111,15 @@ class Library:
 
     def import_paper(self, pdf_in, bib_in):
         with bib_in.open() as f:
-            db = bibtexparser.load(f)
-        entries = db.entries_dict
-        assert len(entries) == 1
-        _, items = entries.popitem()
-        assert "title" in items
-        assert "author" in items
-
-        reg = re.compile(r"[{}]")
-        title = reg.sub("", items["title"].strip())
-        author = reg.sub("", items["author"].strip())
+            entries = self.parse_bibtex(f, required_keys=("title", "author"))
+        reg = re.compile(r"[{}\"]")
+        title = reg.sub("", entries["title"].strip())
+        author = reg.sub("", entries["author"].strip())
 
         index_string = f"{title} - {author}"
-        paper_id = title.lower().replace(" ", "_")
+        paper_id = re.sub(r"[^a-zA-Z0-9- ]", "", title.lower()).replace(" ", "_")
 
+        # TODO: check we are not going to overwrite anything
         shutil.copy(str(pdf_in), str(self.get_pdf_path(paper_id)))
         shutil.copy(str(bib_in), str(self.get_bib_path(paper_id)))
 
@@ -95,24 +127,48 @@ class Library:
         self.write_state()
         print(f"added '{index_string}'")
 
-    @search_cmd
+    def parse_bibtex(self, f, required_keys=None):
+        entries = {}
+        entry_regex = re.compile(r"[^@}]")
+        for line in f:
+            line = line.strip()
+            if not entry_regex.match(line):
+                continue
+            if line.endswith(","):
+                line = line[:-1]
+            try:
+                key, value = map(str.strip, line.split("=", maxsplit=1))
+            except ValueError:
+                print(f"did not recognise line '{line}'", file=sys.stderr)
+                continue
+            entries[key.lower()] = value
+        # Check required keys
+        for key in required_keys or []:
+            if key not in entries:
+                raise InvalidBibTeXError(f"required key '{key}' missing")
+        return entries
+
+    @search_wrapper
     def open_paper(self):
         pdf_path = self.get_pdf_path(self.search())
-        run_cmd(OPEN_CMD + ["--", pdf_path])  # todo: run in the background
+        cmd = f"{self.config.open_command} -- {pdf_path}"
+        run_cmd(cmd, fork=True)
 
-    @search_cmd
+    @search_wrapper
     def export_citation(self):
         print(self.get_bib_path(self.search()).read_text())
 
     def search(self):
         """
-        Run interactive search and return the selected paper ID, or raise
-        SearchFailureError
+        Run interactive search and return the selected paper ID
         """
         index_strs = "\n".join(self.state["index_to_id"].keys())
         if not index_strs:
             raise EmptyLibraryError
-        index_str = run_cmd(SEARCH_CMD, input=bytes(index_strs, "utf-8"))
+        index_str = run_cmd(
+            self.config.search_command,
+            input=bytes(index_strs, "utf-8")
+        )
         mapping = self.state["index_to_id"]
         if not index_str or index_str not in mapping:
             raise SearchFailureError
