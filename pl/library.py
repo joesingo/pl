@@ -124,5 +124,3 @@ class Library:
         if not index_str or index_str not in mapping:
             raise SearchFailureError
         return mapping[index_str]
-
-
