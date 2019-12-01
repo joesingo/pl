@@ -1,10 +1,12 @@
 from pathlib import Path
 
+import yaml
+
 class Config(dict):
     """
     Wrapper around dict for configuration
     """
-    DEFAULT_PATH = Path("~/.config/plconf.yaml").expanduser()
+    DEFAULT_PATH = "~/.config/plconf.yaml"
     DEFAULTS = {
         "search_command": "fzf",
         "open_command": "xdg-open",
@@ -23,3 +25,12 @@ class Config(dict):
 
     def __setattr__(self, k, v):
         self[k] = v
+
+    @classmethod
+    def from_path(cls, path=None):
+        """
+        Initialise a Config object from a pathlib.Path
+        """
+        path = path or Path(cls.DEFAULT_PATH).expanduser()
+        with path.open() as f:
+            return cls(yaml.safe_load(f))

@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import shutil
+import sys
 
 import yaml
 
@@ -26,9 +27,8 @@ def search_wrapper(f):
     return inner
 
 class Library:
-    def __init__(self):
-        with Config.DEFAULT_PATH.open() as f:
-            self.config = Config(yaml.safe_load(f))
+    def __init__(self, config_path=None):
+        self.config = Config.from_path(config_path)
         try:
             self.config.storage_dir = Path(self.config.storage_dir).expanduser()
         except AttributeError:
