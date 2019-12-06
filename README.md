@@ -16,7 +16,7 @@ storage_dir: /path/to/keep/papers
 ```
 
 This is the only required configuration setting. See the [configurartion
-section](#configuration) for other settings that can be set here.
+section](#configuration) for other keys that can be set here.
 
 ## Usage
 
@@ -55,6 +55,18 @@ pl export
 ```
 
 In this case the BibTeX citation is printed to stdout.
+
+### Reimporting
+
+If changes are made to the BibTeX entry for a paper after importing, it is
+possible for the filename and search key to become out of date (e.g. if the
+`title` field is changed, search is still performed against the old title).
+
+To fix this, all papers can be reimported as follows:
+
+``
+pl reimport
+```
 
 ## Configuration
 
