@@ -15,7 +15,7 @@ at `~/.config/plconf.yaml` in YAML format:
 storage_dir: /path/to/keep/papers
 ```
 
-This is the only required configuration setting. See the [configurartion
+This is the only required configuration setting. See the [configuration
 section](#configuration) for other keys that can be set here.
 
 ## Usage
