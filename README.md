@@ -64,7 +64,7 @@ possible for the filename and search key to become out of date (e.g. if the
 
 To fix this, all papers can be reimported as follows:
 
-``
+```
 pl reimport
 ```
 
