@@ -38,5 +38,11 @@ def open_cmd(ctx):
     """Select a paper with fzf and open it with a PDF viewer"""
     ctx.obj["library"].open_paper()
 
+@main.command(name="reimport")
+@click.pass_context
+def reimport_cmd(ctx):
+    """Reimport all papers in the collection"""
+    ctx.obj["library"].reimport_all()
+
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import tempfile
 
 import yaml
 
@@ -27,6 +28,10 @@ def search_wrapper(f):
     return inner
 
 class Library:
+    DEFAULT_STATE = {
+        "index_to_id": {}
+    }
+
     def __init__(self, config_path=None):
         self.config = Config.from_path(config_path)
         try:
@@ -45,9 +50,7 @@ class Library:
             with self.state_file.open() as f:
                 self.state = yaml.safe_load(f)
         except FileNotFoundError:
-            self.state = {
-                "index_to_id": {}
-            }
+            self.state = self.DEFAULT_STATE.copy()
             self.write_state()
 
     def write_state(self):
@@ -77,6 +80,25 @@ class Library:
         self.state["index_to_id"][index_string] = paper_id
         self.write_state()
         print(f"added '{index_string}'")
+
+    def reimport_all(self):
+        # First create a backup of everything
+        tmp_path = Path(tempfile.gettempdir())
+        backup = str(tmp_path / "pl_storage.bak")
+        shutil.rmtree(backup, ignore_errors=True)
+        shutil.copytree(str(self.config.storage_dir), backup)
+        print(f"created backup of storage at {backup}")
+
+        old_state = self.state.copy()
+        self.state = self.DEFAULT_STATE.copy()
+        for _, paper_id in old_state["index_to_id"].items():
+            tmp_pdf = tmp_path / "p.pdf"
+            tmp_bib = tmp_path / "p.bib"
+            shutil.move(str(self.get_pdf_path(paper_id)), str(tmp_pdf))
+            shutil.move(str(self.get_bib_path(paper_id)), str(tmp_bib))
+            self.import_paper(tmp_pdf, tmp_bib)
+
+        print(f"reimported {len(old_state)} papers")
 
     def parse_bibtex(self, f, required_keys=None):
         entries = {}
