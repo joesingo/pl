@@ -26,6 +26,18 @@ def import_cmd(ctx, pdf, bib):
     """Import a PDF and BibTeX file"""
     ctx.obj["library"].import_paper(Path(pdf), Path(bib))
 
+@main.command(name="qimport", short_help="Quick import a PDF and BibTeX file")
+@click.argument("prefix")
+@click.pass_context
+def quick_import_cmd(ctx, prefix):
+    """
+    Shortcut for importing a PDF and BibTeX file whose filename differ only
+    in the extension (assumed to be .pdf and .bib respectively).
+
+    This is equivalent to `pl import PREFIX.pdf PREFIX.bib`
+    """
+    ctx.obj["library"].import_paper(Path(f"{prefix}.pdf"), Path(f"{prefix}.bib"))
+
 @main.command(name="export")
 @click.pass_context
 def export_cmd(ctx):

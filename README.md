@@ -34,6 +34,23 @@ This copies the given PDF to `$storage_dir/pdf/<title>.pdf`, where `<title>` is
 the title of the paper (obtained from the BibTeX), sanitised to make it a
 sensible filename. The BibTeX file is copied to `$storage_dir/bib/<title>.bib`.
 
+#### Quick import
+
+My workflow for importing papers is something like this:
+
+* Download the PDF to an easy to type path -- e.g. `/tmp/p.pdf`
+* Download the BibTeX citation with the same path but with a different
+  extension -- e.g. `/tmp/p.bib`
+
+In this case the input to `pl` only really needs to be the prefix `/tmp/p`.
+The `qimport` (quick import) command exists for this reason:
+
+```
+pl qimport /tmp/p
+```
+
+The above is equivalent to `pl import /tmp/p.pdf /tmp/p.bib`.
+
 ### Opening and exporting
 
 Papers are selected for opening/exporting by fuzzy search delegated to
