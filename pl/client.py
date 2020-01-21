@@ -56,5 +56,13 @@ def reimport_cmd(ctx):
     """Reimport all papers in the collection"""
     ctx.obj["library"].reimport_all()
 
+@main.command(name="rst")
+@click.pass_context
+def rst_header_cmd(ctx):
+    """Select a paper with fzf and print a header for my rST paper notes"""
+    # Note: not for public consumption. Would be better to implement a plugin
+    # system for users to add custom templates
+    ctx.obj["library"].rst_header()
+
 if __name__ == "__main__":
     main()

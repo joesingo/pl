@@ -66,9 +66,8 @@ class Library:
     def import_paper(self, pdf_in, bib_in):
         with bib_in.open() as f:
             entries = self.parse_bibtex(f, required_keys=("title", "author"))
-        reg = re.compile(r"[{}\"]")
-        title = reg.sub("", entries["title"].strip())
-        author = reg.sub("", entries["author"].strip())
+        title = entries["title"]
+        author = entries["author"]
 
         index_string = f"{title} - {author}"
         paper_id = re.sub(r"[^a-zA-Z0-9- ]", "", title.lower()).replace(" ", "_")
@@ -103,6 +102,7 @@ class Library:
     def parse_bibtex(self, f, required_keys=None):
         entries = {}
         entry_regex = re.compile(r"[^@}]")
+        value_regex = re.compile(r"[{}\"]")
         for line in f:
             line = line.strip()
             if not entry_regex.match(line):
@@ -114,7 +114,7 @@ class Library:
             except ValueError:
                 print(f"did not recognise line '{line}'", file=sys.stderr)
                 continue
-            entries[key.lower()] = value
+            entries[key.lower()] = value_regex.sub("", value.strip())
         # Check required keys
         for key in required_keys or []:
             if key not in entries:
@@ -130,6 +130,17 @@ class Library:
     @search_wrapper
     def export_citation(self):
         print(self.get_bib_path(self.search()).read_text())
+
+    @search_wrapper
+    def rst_header(self):
+        bib_path = self.get_bib_path(self.search())
+        with bib_path.open() as f:
+            entries = self.parse_bibtex(f)
+        title = f"{entries['title']} ({entries['year']})"
+        underline = "-" * len(title)
+        authors = f"*({entries['author']})*"
+        rendered = "\n".join([title, underline, authors])
+        print(rendered)
 
     def search(self):
         """
