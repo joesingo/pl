@@ -1,9 +1,11 @@
 from pathlib import Path
+import tempfile
 
 import click
 
 from pl.config import Config
 from pl.library import Library
+from pl.pirate import get_pdf_bib
 
 @click.group()
 @click.option(
@@ -63,6 +65,33 @@ def rst_header_cmd(ctx):
     # Note: not for public consumption. Would be better to implement a plugin
     # system for users to add custom templates
     ctx.obj["library"].rst_header()
+
+@main.command(
+    name="pirate",
+    short_help="Find a PDF and citation from a URL using SciHub"
+)
+@click.argument("url")
+@click.pass_context
+def pirate_cmd(ctx, url):
+    """
+    Use paperfinder library to find a paper's DOI and BibTeX citation, given
+    its URL on the publisher's website. Use SciHub to download the PDF, and
+    import into the library.
+    """
+    # Note: possibly also not for public consumption...
+    library = ctx.obj["library"]
+    pdf, bib = get_pdf_bib(url)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        name = "pl"
+
+        pdf_path = temp_path / f"{name}.pdf"
+        pdf_path.write_bytes(pdf)
+
+        bib_path = temp_path / f"{name}.bib"
+        bib_path.write_text(bib)
+
+        library.import_paper(pdf_path, bib_path)
 
 if __name__ == "__main__":
     main()

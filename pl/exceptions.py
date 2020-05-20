@@ -12,3 +12,8 @@ class InvalidBibTeXError(Exception):
     """
     There was an error parsing the BibTeX contents
     """
+
+class SciHubError(Exception):
+    """
+    There was a problem downloading a PDF from SciHub
+    """
