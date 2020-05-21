@@ -2,10 +2,11 @@ from pathlib import Path
 import tempfile
 
 import click
+from paperfinder import get_publisher, get_bibtex
 
 from pl.config import Config
 from pl.library import Library
-from pl.pirate import get_pdf_bib
+from pl.pirate import get_pdf
 
 @click.group()
 @click.option(
@@ -68,19 +69,31 @@ def rst_header_cmd(ctx):
 
 @main.command(
     name="pirate",
-    short_help="Find a PDF and citation from a URL using SciHub"
+    short_help="Find a PDF and citation from a URL or DOI using SciHub"
 )
-@click.argument("url")
+@click.option("-u", "--url", type=str)
+@click.option("-d", "--doi", type=str)
 @click.pass_context
-def pirate_cmd(ctx, url):
+def pirate_cmd(ctx, url=None, doi=None):
     """
     Use paperfinder library to find a paper's DOI and BibTeX citation, given
     its URL on the publisher's website. Use SciHub to download the PDF, and
     import into the library.
     """
     # Note: possibly also not for public consumption...
+    if not url and not doi:
+        raise click.ClickException("at least one of URL or DOI must be given")
+    if url and doi:
+        raise click.ClickException("cannot give both URL and DOI")
+
     library = ctx.obj["library"]
-    pdf, bib = get_pdf_bib(url)
+    if url:
+        # Let any paperfinder exceptions bubble
+        pub = get_publisher(url)
+        doi = pub.get_doi(url)
+    bib = get_bibtex(doi)
+    pdf = get_pdf(doi)
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         name = "pl"

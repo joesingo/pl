@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-from paperfinder import get_publisher, get_bibtex
 
 from pl.exceptions import SciHubError
 from pl.secrets import SCIHUB_COOKIES
@@ -31,15 +30,3 @@ def get_pdf_url(doi):
 def get_pdf(doi):
     resp = requests.get(get_pdf_url(doi), cookies=SCIHUB_COOKIES)
     return resp.content
-
-def get_pdf_bib(url):
-    """
-    Return `(pdf, bibtex)` where `pdf` is a bytes object and `bibtex` is a
-    string
-    """
-    # Let any paperfinder exceptions bubble
-    pub = get_publisher(url)
-    doi = pub.get_doi(url)
-    bibtex = get_bibtex(doi)
-
-    return get_pdf(doi), bibtex
